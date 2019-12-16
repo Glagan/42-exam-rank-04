@@ -160,29 +160,6 @@ int
 }
 
 int
-	list_display(t_list **cmd)
-{
-	int	i;
-
-	list_rewind(cmd);
-	while (*cmd)
-	{
-		printf("cmd: %s\n", (*cmd)->args[0]);
-		if ((*cmd)->length > 1)
-		{
-			i = 1;
-			while (i < (*cmd)->length)
-				printf("   : %s\n", (*cmd)->args[i++]);
-		}
-		if (!(*cmd)->next)
-			break ;
-		*cmd = (*cmd)->next;
-	}
-	list_rewind(cmd);
-	return (0);
-}
-
-int
 	parse_arg(t_list **cmds, char *arg)
 {
 	if ((!*cmds || (*cmds)->type > TYPE_END))
@@ -315,7 +292,6 @@ int
 	while (i < argc)
 		if (parse_arg(&cmds, argv[i++]))
 			return (exit_fatal());
-	list_display(&cmds);
 	if (exec_cmds(&cmds, env))
 		return (list_clear(&cmds) | 1);
 	list_clear(&cmds);
