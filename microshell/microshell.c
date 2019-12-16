@@ -3,6 +3,9 @@
 #include <string.h>
 #include <stdio.h>
 
+#define SIDE_LEFT	0
+#define SIDE_RGHT	1
+
 #define TYPE_END	0
 #define TYPE_PIPE	1
 #define TYPE_BREAK	2
@@ -193,12 +196,12 @@ int
 	{
 		if (cmd->type == TYPE_PIPE)
 		{
-			if (dup2(cmd->pipes[1], STDOUT_FILENO) < 0)
+			if (dup2(cmd->pipes[SIDE_RGHT], STDOUT_FILENO) < 0)
 				return (exit_fatal());
 		}
 		if (cmd->previous
 			&& cmd->previous->type == TYPE_PIPE
-			&& dup2(cmd->previous->pipes[0], STDIN_FILENO) < 0)
+			&& dup2(cmd->previous->pipes[SIDE_LEFT], STDIN_FILENO) < 0)
 			return (exit_fatal());
 		ret = execve(args[0], args, env);
 		if (ret < 0)
@@ -208,10 +211,10 @@ int
 			show_error("\n");
 		}
 		if (cmd->type == TYPE_PIPE)
-			close(cmd->pipes[1]);
+			close(cmd->pipes[SIDE_RGHT]);
 		if (cmd->previous
 			&& cmd->previous->type == TYPE_PIPE)
-			close(cmd->pipes[0]);
+			close(cmd->pipes[SIDE_LEFT]);
 		exit(ret);
 		return (ret);
 	}
@@ -221,11 +224,11 @@ int
 	{
 		waitpid(pid, &status, 0);
 		if (cmd->type == TYPE_PIPE)
-			close(cmd->pipes[1]);
+			close(cmd->pipes[SIDE_RGHT]);
 		if (cmd->type == TYPE_PIPE
 			&& cmd->previous
 			&& cmd->previous->type == TYPE_PIPE)
-			close(cmd->previous->pipes[0]);
+			close(cmd->previous->pipes[SIDE_LEFT]);
 		if (WIFEXITED(status))
 			return (WEXITSTATUS(status));
 		return (1);
