@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #define SIDE_LEFT	0
-#define SIDE_RGHT	1
+#define SIDE_RIGHT	1
 
 #define TYPE_END	0
 #define TYPE_PIPE	1
@@ -125,7 +125,7 @@ int
 int
 	list_rewind(t_list **list)
 {
-	while ((*list)->previous)
+	while (*list && (*list)->previous)
 		*list = (*list)->previous;
 	return (0);
 }
@@ -165,14 +165,22 @@ int
 int
 	parse_arg(t_list **cmds, char *arg)
 {
+	int	is_break;
+
+	is_break = (strcmp(";", arg) == 0);
+	if (is_break && !*cmds)
+		return (0);
 	if ((!*cmds || (*cmds)->type > TYPE_END))
 		return (list_push(cmds, arg));
 	else
 	{
 		if (strcmp("|", arg) == 0)
 			(*cmds)->type = TYPE_PIPE;
-		else if (strcmp(";", arg) == 0)
-			(*cmds)->type = TYPE_BREAK;
+		else if (is_break)
+		{
+			if (*cmds)
+				(*cmds)->type = TYPE_BREAK;
+		}
 		else
 			return (add_arg(*cmds, arg));
 	}
@@ -185,9 +193,12 @@ int
 	pid_t	pid;
 	int		ret;
 	int		status;
+	int		pipe_open;
 
+	pipe_open = 0;
 	if (cmd->type == TYPE_PIPE)
 	{
+		pipe_open = 1;
 		if (pipe(cmd->pipes) < 0)
 			return (exit_fatal());
 	}
@@ -196,7 +207,7 @@ int
 	{
 		if (cmd->type == TYPE_PIPE)
 		{
-			if (dup2(cmd->pipes[SIDE_RGHT], STDOUT_FILENO) < 0)
+			if (dup2(cmd->pipes[SIDE_RIGHT], STDOUT_FILENO) < 0)
 				return (exit_fatal());
 		}
 		if (cmd->previous
@@ -210,11 +221,13 @@ int
 			show_error(args[0]);
 			show_error("\n");
 		}
-		if (cmd->type == TYPE_PIPE)
-			close(cmd->pipes[SIDE_RGHT]);
-		if (cmd->previous
-			&& cmd->previous->type == TYPE_PIPE)
+		if (pipe_open)
+		{
 			close(cmd->pipes[SIDE_LEFT]);
+			close(cmd->pipes[SIDE_RIGHT]);
+		}
+		if (cmd->previous && cmd->previous->type == TYPE_PIPE)
+			close(cmd->previous->pipes[SIDE_LEFT]);
 		exit(ret);
 		return (ret);
 	}
@@ -223,11 +236,14 @@ int
 	else
 	{
 		waitpid(pid, &status, 0);
-		if (cmd->type == TYPE_PIPE)
-			close(cmd->pipes[SIDE_RGHT]);
-		if (cmd->type == TYPE_PIPE
-			&& cmd->previous
-			&& cmd->previous->type == TYPE_PIPE)
+		if (pipe_open)
+		{
+			close(cmd->pipes[SIDE_RIGHT]);
+			if (!cmd->next || cmd->type == TYPE_BREAK
+				|| !WIFEXITED(status) || WEXITSTATUS(status))
+				close(cmd->pipes[SIDE_LEFT]);
+		}
+		if (cmd->previous && cmd->previous->type == TYPE_PIPE)
 			close(cmd->previous->pipes[SIDE_LEFT]);
 		if (WIFEXITED(status))
 			return (WEXITSTATUS(status));
@@ -240,8 +256,9 @@ int
 	exec_cmds(t_list **cmds, char * const *env)
 {
 	t_list	*crt;
+	int		last_ret;
 
-	env = NULL;
+	last_ret = 0;
 	list_rewind(cmds);
 	while (*cmds)
 	{
@@ -266,7 +283,7 @@ int
 			break ;
 		*cmds = (*cmds)->next;
 	}
-	return (0);
+	return (last_ret);
 }
 
 int
@@ -284,6 +301,7 @@ int
 {
 	t_list	*cmds;
 	int		i;
+	int		ret;
 
 	if (argc < 2)
 	{
@@ -295,8 +313,9 @@ int
 	while (i < argc)
 		if (parse_arg(&cmds, argv[i++]))
 			return (exit_fatal());
-	if (exec_cmds(&cmds, env))
-		return (list_clear(&cmds) | 1);
+	if (cmds && (ret = exec_cmds(&cmds, env)))
+		return (list_clear(&cmds) | ret);
 	list_clear(&cmds);
-	return (0);
+	while (1);
+	return (ret);
 }
