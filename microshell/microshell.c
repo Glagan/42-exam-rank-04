@@ -59,7 +59,7 @@ char
 	char	*copy;
 	int		i;
 
-	if (!(copy = (char*)malloc(sizeof(*copy) * ft_strlen(str))))
+	if (!(copy = (char*)malloc(sizeof(*copy) * (ft_strlen(str) + 1))))
 	{
 		exit_fatal();
 		return (NULL);
@@ -89,7 +89,8 @@ int
 		tmp[i] = cmd->args[i];
 		i++;
 	}
-	free(cmd->args);
+	if (cmd->length > 0)
+		free(cmd->args);
 	cmd->args = tmp;
 	if (!(cmd->args[i++] = ft_strdup(arg)))
 		return (exit_fatal());
@@ -105,9 +106,7 @@ int
 
 	if (!(new = (t_list*)malloc(sizeof(*new))))
 		return (exit_fatal());
-	if (!(new->args = (char**)malloc(sizeof(*new->args))))
-		return (exit_fatal());
-	new->args[0] = NULL;
+	new->args = NULL;
 	new->length = 0;
 	new->type = TYPE_END;
 	new->previous = NULL;
@@ -176,10 +175,7 @@ int
 		if (strcmp("|", arg) == 0)
 			(*cmds)->type = TYPE_PIPE;
 		else if (is_break)
-		{
-			if (*cmds)
-				(*cmds)->type = TYPE_BREAK;
-		}
+			(*cmds)->type = TYPE_BREAK;
 		else
 			return (add_arg(*cmds, arg));
 	}
@@ -264,7 +260,7 @@ int
 		{
 			if (crt->length != 2)
 				return (show_error("error: cd: bad arguments\n"));
-			if (chdir(crt->args[1]) != 0)
+			else if (chdir(crt->args[1]) != 0)
 			{
 				return (show_error("error: cd: cannot change directory to ")
 					&& show_error(crt->args[1])
@@ -281,16 +277,6 @@ int
 		*cmds = (*cmds)->next;
 	}
 	return (last_ret);
-}
-
-int
-	exit_error(t_list **cmds, char const *str)
-{
-	if (cmds)
-		list_clear(cmds);
-	if (str)
-		show_error(str);
-	return (1);
 }
 
 int
