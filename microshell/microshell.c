@@ -168,17 +168,14 @@ int
 	is_break = (strcmp(";", arg) == 0);
 	if (is_break && !*cmds)
 		return (0);
-	if ((!*cmds || (*cmds)->type > TYPE_END))
+	else if (!*cmds || (*cmds)->type > TYPE_END)
 		return (list_push(cmds, arg));
+	else if (strcmp("|", arg) == 0)
+		(*cmds)->type = TYPE_PIPE;
+	else if (is_break)
+		(*cmds)->type = TYPE_BREAK;
 	else
-	{
-		if (strcmp("|", arg) == 0)
-			(*cmds)->type = TYPE_PIPE;
-		else if (is_break)
-			(*cmds)->type = TYPE_BREAK;
-		else
-			return (add_arg(*cmds, arg));
-	}
+		return (add_arg(*cmds, arg));
 	return (0);
 }
 
