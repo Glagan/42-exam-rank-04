@@ -3,12 +3,18 @@
 #include <string.h>
 #include <stdio.h>
 
-#define SIDE_LEFT	0
-#define SIDE_RIGHT	1
+#define SIDE_OUT	0
+#define SIDE_IN		1
 
 #define TYPE_END	0
 #define TYPE_PIPE	1
 #define TYPE_BREAK	2
+
+#ifdef TEST_SH
+# define TEST		1
+#else
+# define TEST		0
+#endif
 
 typedef struct	s_list
 {
@@ -76,24 +82,15 @@ int
 
 	i = 0;
 	tmp = NULL;
-	if (cmd->length > 0)
+	if (!(tmp = (char**)malloc(sizeof(*tmp) * (cmd->length + 2))))
+		return (exit_fatal());
+	while (i < cmd->length)
 	{
-		if (!(tmp = (char**)malloc(sizeof(*tmp) * (cmd->length + 2))))
-			return (exit_fatal());
-		while (i < cmd->length)
-		{
-			tmp[i] = cmd->args[i];
-			i++;
-		}
-		free(cmd->args);
-		cmd->args = tmp;
+		tmp[i] = cmd->args[i];
+		i++;
 	}
-	else
-	{
-		if (!(tmp = (char**)malloc(sizeof(*tmp) * 2)))
-			return (exit_fatal());
-		cmd->args = tmp;
-	}
+	free(cmd->args);
+	cmd->args = tmp;
 	if (!(cmd->args[i++] = ft_strdup(arg)))
 		return (exit_fatal());
 	cmd->length++;
@@ -108,7 +105,9 @@ int
 
 	if (!(new = (t_list*)malloc(sizeof(*new))))
 		return (exit_fatal());
-	new->args = NULL;
+	if (!(new->args = (char**)malloc(sizeof(*new->args))))
+		return (exit_fatal());
+	new->args[0] = NULL;
 	new->length = 0;
 	new->type = TYPE_END;
 	new->previous = NULL;
@@ -196,7 +195,7 @@ int
 	int		pipe_open;
 
 	pipe_open = 0;
-	if (cmd->type == TYPE_PIPE)
+	if (cmd->type == TYPE_PIPE || (cmd->previous && cmd->previous->type == TYPE_PIPE))
 	{
 		pipe_open = 1;
 		if (pipe(cmd->pipes) < 0)
@@ -205,14 +204,12 @@ int
 	pid = fork();
 	if (pid == 0)
 	{
-		if (cmd->type == TYPE_PIPE)
-		{
-			if (dup2(cmd->pipes[SIDE_RIGHT], STDOUT_FILENO) < 0)
-				return (exit_fatal());
-		}
+		if (cmd->type == TYPE_PIPE
+			&& dup2(cmd->pipes[SIDE_IN], STDOUT_FILENO) < 0)
+			return (exit_fatal());
 		if (cmd->previous
 			&& cmd->previous->type == TYPE_PIPE
-			&& dup2(cmd->previous->pipes[SIDE_LEFT], STDIN_FILENO) < 0)
+			&& dup2(cmd->previous->pipes[SIDE_OUT], STDIN_FILENO) < 0)
 			return (exit_fatal());
 		ret = execve(args[0], args, env);
 		if (ret < 0)
@@ -223,11 +220,11 @@ int
 		}
 		if (pipe_open)
 		{
-			close(cmd->pipes[SIDE_LEFT]);
-			close(cmd->pipes[SIDE_RIGHT]);
+			close(cmd->pipes[SIDE_OUT]);
+			close(cmd->pipes[SIDE_IN]);
 		}
 		if (cmd->previous && cmd->previous->type == TYPE_PIPE)
-			close(cmd->previous->pipes[SIDE_LEFT]);
+			close(cmd->previous->pipes[SIDE_OUT]);
 		exit(ret);
 		return (ret);
 	}
@@ -238,13 +235,13 @@ int
 		waitpid(pid, &status, 0);
 		if (pipe_open)
 		{
-			close(cmd->pipes[SIDE_RIGHT]);
+			close(cmd->pipes[SIDE_IN]);
 			if (!cmd->next || cmd->type == TYPE_BREAK
 				|| !WIFEXITED(status) || WEXITSTATUS(status))
-				close(cmd->pipes[SIDE_LEFT]);
+				close(cmd->pipes[SIDE_OUT]);
 		}
 		if (cmd->previous && cmd->previous->type == TYPE_PIPE)
-			close(cmd->previous->pipes[SIDE_LEFT]);
+			close(cmd->previous->pipes[SIDE_OUT]);
 		if (WIFEXITED(status))
 			return (WEXITSTATUS(status));
 		return (1);
@@ -303,10 +300,11 @@ int
 	int		i;
 	int		ret;
 
-	if (argc < 2)
+	ret = 0;
+	if (argc == 1)
 	{
 		write(STDOUT_FILENO, "\n", 1);
-		return (0);
+		return (ret);
 	}
 	cmds = NULL;
 	i = 1;
@@ -316,6 +314,7 @@ int
 	if (cmds && (ret = exec_cmds(&cmds, env)))
 		return (list_clear(&cmds) | ret);
 	list_clear(&cmds);
-	while (1);
+	if (TEST)
+		while (1);
 	return (ret);
 }
