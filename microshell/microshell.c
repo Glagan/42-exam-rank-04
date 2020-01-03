@@ -26,8 +26,7 @@ typedef struct	s_list
 	struct s_list	*next;
 }				t_list;
 
-int
-	ft_strlen(char const *str)
+int ft_strlen(char const *str)
 {
 	int	i;
 
@@ -37,33 +36,34 @@ int
 	return (i);
 }
 
-int
-	show_error(char const *str)
+int show_error(char const *str)
 {
 	if (str)
 		write(STDERR_FILENO, str, ft_strlen(str));
 	return (1);
 }
 
-int
-	exit_fatal(void)
+int exit_fatal(void)
 {
 	show_error("error: fatal\n");
 	exit(1);
 	return (1);
 }
 
-char
-	*ft_strdup(char const *str)
+void *exit_fatal_ptr(void)
+{
+	exit_fatal();
+	exit(1);
+	return (NULL);
+}
+
+char *ft_strdup(char const *str)
 {
 	char	*copy;
 	int		i;
 
 	if (!(copy = (char*)malloc(sizeof(*copy) * (ft_strlen(str) + 1))))
-	{
-		exit_fatal();
-		return (NULL);
-	}
+		return (exit_fatal_ptr());
 	i = 0;
 	while (str[i])
 	{
@@ -74,8 +74,7 @@ char
 	return (copy);
 }
 
-int
-	add_arg(t_list *cmd, char *arg)
+int add_arg(t_list *cmd, char *arg)
 {
 	char	**tmp;
 	int		i;
@@ -99,8 +98,7 @@ int
 	return (0);
 }
 
-int
-	list_push(t_list **list, char *arg)
+int list_push(t_list **list, char *arg)
 {
 	t_list	*new;
 
@@ -120,39 +118,26 @@ int
 	return (add_arg(new, arg));
 }
 
-int
-	list_rewind(t_list **list)
+int list_rewind(t_list **list)
 {
 	while (*list && (*list)->previous)
 		*list = (*list)->previous;
 	return (0);
 }
 
-int
-	args_clear(t_list *cmd)
-{
-	int	i;
-
-	i = 0;
-	while (i < cmd->length)
-		free(cmd->args[i++]);
-	free(cmd->args);
-	cmd->args = NULL;
-	cmd->length = 0;
-	return (0);
-}
-
-int
-	list_clear(t_list **cmds)
+int list_clear(t_list **cmds)
 {
 	t_list	*tmp;
+	int	i;
 
 	list_rewind(cmds);
 	while (*cmds)
 	{
 		tmp = (*cmds)->next;
-		if ((*cmds)->length > 0)
-			args_clear(*cmds);
+		i = 0;
+		while (i < (*cmds)->length)
+			free((*cmds)->args[i++]);
+		free((*cmds)->args);
 		free(*cmds);
 		*cmds = tmp;
 	}
@@ -160,8 +145,7 @@ int
 	return (0);
 }
 
-int
-	parse_arg(t_list **cmds, char *arg)
+int parse_arg(t_list **cmds, char *arg)
 {
 	int	is_break;
 
@@ -179,8 +163,7 @@ int
 	return (0);
 }
 
-int
-	exec_cmd(t_list *cmd, char **args, char * const *env)
+int exec_cmd(t_list *cmd, char * const *env)
 {
 	pid_t	pid;
 	int		ret;
@@ -191,7 +174,7 @@ int
 	if (cmd->type == TYPE_PIPE || (cmd->previous && cmd->previous->type == TYPE_PIPE))
 	{
 		pipe_open = 1;
-		if (pipe(cmd->pipes) < 0)
+		if (pipe(cmd->pipes))
 			return (exit_fatal());
 	}
 	pid = fork();
@@ -204,11 +187,11 @@ int
 			&& cmd->previous->type == TYPE_PIPE
 			&& dup2(cmd->previous->pipes[SIDE_OUT], STDIN_FILENO) < 0)
 			return (exit_fatal());
-		ret = execve(args[0], args, env);
+		ret = execve(cmd->args[0], cmd->args, env);
 		if (ret < 0)
 		{
 			show_error("error: cannot execute ");
-			show_error(args[0]);
+			show_error(cmd->args[0]);
 			show_error("\n");
 		}
 		if (pipe_open)
@@ -242,8 +225,7 @@ int
 	return (0);
 }
 
-int
-	exec_cmds(t_list **cmds, char * const *env)
+int exec_cmds(t_list **cmds, char * const *env)
 {
 	t_list	*crt;
 	int		last_ret;
@@ -255,16 +237,16 @@ int
 		crt = *cmds;
 		if (strcmp("cd", crt->args[0]) == 0)
 		{
-			if (crt->length != 2)
-				return (show_error("error: cd: bad arguments\n"));
-			else if (chdir(crt->args[1]) != 0)
+			if (crt->length < 2)
+				show_error("error: cd: bad arguments\n");
+			else if (chdir(crt->args[1]))
 			{
-				return (show_error("error: cd: cannot change directory to ")
-					&& show_error(crt->args[1])
-					&& show_error("\n"));
+				show_error("error: cd: cannot change directory to ");
+				show_error(crt->args[1]);
+				show_error("\n");
 			}
 		}
-		else if (exec_cmd(crt, crt->args, env))
+		else if (exec_cmd(crt, env))
 		{
 			while ((*cmds)->next && (*cmds)->type == TYPE_PIPE)
 				*cmds = (*cmds)->next;
@@ -276,19 +258,13 @@ int
 	return (last_ret);
 }
 
-int
-	main(int argc, char **argv, char * const *env)
+int main(int argc, char **argv, char * const *env)
 {
 	t_list	*cmds;
 	int		i;
 	int		ret;
 
 	ret = 0;
-	if (argc == 1)
-	{
-		write(STDOUT_FILENO, "\n", 1);
-		return (ret);
-	}
 	cmds = NULL;
 	i = 1;
 	while (i < argc)
@@ -299,5 +275,6 @@ int
 	list_clear(&cmds);
 	if (TEST)
 		while (1);
+	exit(ret);
 	return (ret);
 }
