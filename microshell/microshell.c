@@ -40,20 +40,20 @@ int show_error(char const *str)
 {
 	if (str)
 		write(STDERR_FILENO, str, ft_strlen(str));
-	return (1);
+	return (EXIT_FAILURE);
 }
 
 int exit_fatal(void)
 {
 	show_error("error: fatal\n");
-	exit(1);
-	return (1);
+	exit(EXIT_FAILURE);
+	return (EXIT_FAILURE);
 }
 
 void *exit_fatal_ptr(void)
 {
 	exit_fatal();
-	exit(1);
+	exit(EXIT_FAILURE);
 	return (NULL);
 }
 
@@ -122,7 +122,7 @@ int list_rewind(t_list **list)
 {
 	while (*list && (*list)->previous)
 		*list = (*list)->previous;
-	return (0);
+	return (EXIT_SUCCESS);
 }
 
 int list_clear(t_list **cmds)
@@ -142,7 +142,7 @@ int list_clear(t_list **cmds)
 		*cmds = tmp;
 	}
 	*cmds = NULL;
-	return (0);
+	return (EXIT_SUCCESS);
 }
 
 int parse_arg(t_list **cmds, char *arg)
@@ -160,10 +160,10 @@ int parse_arg(t_list **cmds, char *arg)
 		(*cmds)->type = TYPE_BREAK;
 	else
 		return (add_arg(*cmds, arg));
-	return (0);
+	return (EXIT_SUCCESS);
 }
 
-int exec_cmd(t_list *cmd, char * const *env)
+int exec_cmd(t_list *cmd, char **env)
 {
 	pid_t	pid;
 	int		ret;
@@ -220,12 +220,12 @@ int exec_cmd(t_list *cmd, char * const *env)
 			close(cmd->previous->pipes[SIDE_OUT]);
 		if (WIFEXITED(status))
 			return (WEXITSTATUS(status));
-		return (1);
+		return (EXIT_FAILURE);
 	}
-	return (0);
+	return (EXIT_SUCCESS);
 }
 
-int exec_cmds(t_list **cmds, char * const *env)
+int exec_cmds(t_list **cmds, char **env)
 {
 	t_list	*crt;
 	int		last_ret;
@@ -258,7 +258,7 @@ int exec_cmds(t_list **cmds, char * const *env)
 	return (last_ret);
 }
 
-int main(int argc, char **argv, char * const *env)
+int main(int argc, char **argv, char **env)
 {
 	t_list	*cmds;
 	int		i;
@@ -275,6 +275,5 @@ int main(int argc, char **argv, char * const *env)
 	list_clear(&cmds);
 	if (TEST)
 		while (1);
-	exit(ret);
 	return (ret);
 }
