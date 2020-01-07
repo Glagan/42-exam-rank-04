@@ -28,6 +28,11 @@ test_line /bin/cat microshell.c
 test_line /bin/ls microshell.c
 test_line /bin/ls salut
 test_line ";"
+test_line ";" ";"
+test_line ";" ";" /bin/echo OK
+test_line ";" ";" /bin/echo OK ";"
+test_line ";" ";" /bin/echo OK ";" ";"
+test_line ";" ";" /bin/echo OK ";" ";" ";" /bin/echo OK
 test_line /bin/ls "|" /usr/bin/grep microshell
 test_line /bin/ls "|" /usr/bin/grep microshell "|" /usr/bin/grep micro
 test_line /bin/ls "|" /usr/bin/grep microshell "|" /usr/bin/grep micro "|" /usr/bin/grep shell "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro "|" /usr/bin/grep micro
