@@ -172,6 +172,7 @@ int exec_cmd(t_list *cmd, char **env)
 	int		status;
 	int		pipe_open;
 
+	ret = EXIT_FAILURE;
 	pipe_open = 0;
 	if (cmd->type == TYPE_PIPE || (cmd->previous && cmd->previous->type == TYPE_PIPE))
 	{
@@ -187,25 +188,16 @@ int exec_cmd(t_list *cmd, char **env)
 		if (cmd->type == TYPE_PIPE
 			&& dup2(cmd->pipes[SIDE_IN], STDOUT) < 0)
 			return (exit_fatal());
-		if (cmd->previous
-			&& cmd->previous->type == TYPE_PIPE
+		if (cmd->previous && cmd->previous->type == TYPE_PIPE
 			&& dup2(cmd->previous->pipes[SIDE_OUT], STDIN) < 0)
 			return (exit_fatal());
 		if ((ret = execve(cmd->args[0], cmd->args, env)) < 0)
 		{
-			if (pipe_open)
-			{
-				close(cmd->pipes[SIDE_OUT]);
-				close(cmd->pipes[SIDE_IN]);
-			}
-			if (cmd->previous && cmd->previous->type == TYPE_PIPE)
-				close(cmd->previous->pipes[SIDE_OUT]);
 			show_error("error: cannot execute ");
 			show_error(cmd->args[0]);
 			show_error("\n");
 		}
 		exit(ret);
-		return (ret);
 	}
 	else
 	{
@@ -213,17 +205,15 @@ int exec_cmd(t_list *cmd, char **env)
 		if (pipe_open)
 		{
 			close(cmd->pipes[SIDE_IN]);
-			if (!cmd->next || cmd->type == TYPE_BREAK
-				|| !WIFEXITED(status) || WEXITSTATUS(status))
+			if (!cmd->next || cmd->type == TYPE_BREAK)
 				close(cmd->pipes[SIDE_OUT]);
 		}
 		if (cmd->previous && cmd->previous->type == TYPE_PIPE)
 			close(cmd->previous->pipes[SIDE_OUT]);
 		if (WIFEXITED(status))
-			return (WEXITSTATUS(status));
-		return (EXIT_FAILURE);
+			ret = WEXITSTATUS(status);
 	}
-	return (EXIT_SUCCESS);
+	return (ret);
 }
 
 int exec_cmds(t_list **cmds, char **env)
@@ -238,28 +228,18 @@ int exec_cmds(t_list **cmds, char **env)
 		crt = *cmds;
 		if (strcmp("cd", crt->args[0]) == 0)
 		{
+			ret = EXIT_SUCCESS;
 			if (crt->length < 2)
-			{
-				show_error("error: cd: bad arguments\n");
-				ret = EXIT_FAILURE;
-			}
+				ret = show_error("error: cd: bad arguments\n");
 			else if (chdir(crt->args[1]))
 			{
-				show_error("error: cd: cannot change directory to ");
+				ret = show_error("error: cd: cannot change directory to ");
 				show_error(crt->args[1]);
 				show_error("\n");
-				ret = EXIT_FAILURE;
 			}
-			else
-				ret = EXIT_SUCCESS;
-		}
-		else if ((ret = exec_cmd(crt, env)))
-		{
-			while ((*cmds)->next && (*cmds)->type == TYPE_PIPE)
-				*cmds = (*cmds)->next;
 		}
 		else
-			ret = EXIT_SUCCESS;
+			ret = exec_cmd(crt, env);
 		if (!(*cmds)->next)
 			break ;
 		*cmds = (*cmds)->next;
