@@ -1,6 +1,6 @@
 # Exam Rank 04
 
->Test filedes leaks with ``lsof -c microshel``
+>Test filedes leaks with ``lsof -c microshell``
 
 ## Ressources
 
